@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import "./home.css";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 
 // Mock simple para probar lectura / tipeo de códigos
 const PRODUCT_DB = {
@@ -12,19 +13,19 @@ export default function Home() {
   const [barcode, setBarcode] = useState("");
   const [items, setItems] = useState([]);
 
-  // ---- cámara / permisos ----
-  const [camOpen, setCamOpen] = useState(false);
-  const [camError, setCamError] = useState("");
-  const [camInfo, setCamInfo] = useState("");
+  // ---- Debug ----
   const [debugLines, setDebugLines] = useState([]);
-
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-
   const log = (msg) => {
     const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
     setDebugLines((prev) => [line, ...prev].slice(0, 30));
   };
+
+  // ---- Scanner modal ----
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerError, setScannerError] = useState("");
+  const scannerVideoRef = useRef(null);
+  const readerRef = useRef(null);
+  const isScanningRef = useRef(false);
 
   const total = useMemo(
     () => items.reduce((acc, it) => acc + it.subtotal, 0),
@@ -36,10 +37,13 @@ export default function Home() {
     const clean = String(code || "").trim();
     if (!clean) return;
 
+    log(`📦 Código detectado: ${clean}`);
+    setBarcode(clean); // por si querés verlo en el input
+
     const prod = PRODUCT_DB[clean];
     if (!prod) {
-      alert(`No encontrado: ${clean} (mock DB)`);
-      setBarcode("");
+      // por ahora lo dejamos explícito, para que sepas que escaneó pero no existe en DB
+      alert(`Escaneado OK, pero no existe en mock DB: ${clean}`);
       return;
     }
 
@@ -64,8 +68,6 @@ export default function Home() {
         },
       ];
     });
-
-    setBarcode("");
   };
 
   const clearAll = () => {
@@ -73,84 +75,92 @@ export default function Home() {
     setBarcode("");
   };
 
-  // ---- cámara ----
-  const closeCamera = () => {
-    log("Cerrando cámara");
-    const s = streamRef.current;
-    if (s) s.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.srcObject = null;
+  // ---- scanner start/stop ----
+  const stopScanner = () => {
+    try {
+      isScanningRef.current = false;
+      if (readerRef.current) {
+        readerRef.current.reset();
+        readerRef.current = null;
+      }
+      if (scannerVideoRef.current) {
+        scannerVideoRef.current.pause?.();
+        scannerVideoRef.current.srcObject = null;
+      }
+      log("🛑 Scanner detenido");
+    } catch {
+      // noop
     }
-
-    setCamOpen(false);
   };
 
-  const openCamera = async () => {
-    setCamError("");
-    setCamInfo("");
-    log("Click Test Cámara");
+  const closeScanner = () => {
+    stopScanner();
+    setScannerOpen(false);
+    setScannerError("");
+  };
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCamError("getUserMedia NO disponible");
-      log("❌ getUserMedia no existe");
-      return;
-    }
+  const openScanner = async () => {
+    setScannerError("");
+    setScannerOpen(true);
 
-    closeCamera();
-
-    const start = async (constraints, label) => {
-      log(`getUserMedia → ${label}`);
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
-
-      const track = stream.getVideoTracks()[0];
-      const settings = track?.getSettings?.() || {};
-      setCamInfo(JSON.stringify(settings, null, 2));
-      log(`settings: ${JSON.stringify(settings)}`);
-
-      const video = videoRef.current;
-      if (!video) {
-        log("❌ videoRef sigue null (esto ya no debería pasar)");
-        return;
-      }
-
-      video.srcObject = stream;
-      video.muted = true;
-      video.autoplay = true;
-      video.playsInline = true;
-      video.setAttribute("playsinline", "true");
-
-      await video.play();
-      setCamOpen(true);
-      log("✅ cámara reproduciendo");
-    };
-
-    try {
-      await start(
-        { video: { facingMode: { ideal: "environment" } }, audio: false },
-        "trasera"
-      );
-    } catch (e1) {
-      log(`⚠️ trasera falló: ${e1.name}`);
+    // Esperamos a que el modal renderice el <video>
+    setTimeout(async () => {
       try {
-        await start({ video: true, audio: false }, "fallback");
-      } catch (e2) {
-        const msg =
-          e2.name === "NotAllowedError"
-            ? "Permiso de cámara denegado"
-            : e2.name === "NotReadableError"
-            ? "Cámara ocupada por otra app"
-            : e2.name === "NotFoundError"
-            ? "No hay cámara"
-            : `Error cámara: ${e2.name}`;
+        const video = scannerVideoRef.current;
+        if (!video) {
+          setScannerError("No se pudo inicializar el video del scanner.");
+          log("❌ scannerVideoRef.current = null");
+          return;
+        }
 
-        setCamError(msg);
+        // Crear lector
+        const reader = new BrowserMultiFormatReader();
+        readerRef.current = reader;
+        isScanningRef.current = true;
+
+        log("📷 Iniciando scanner (ZXing)…");
+
+        // Pedimos cámara trasera ideal
+        await reader.decodeFromConstraints(
+          { audio: false, video: { facingMode: { ideal: "environment" } } },
+          video,
+          (result, err) => {
+            if (!isScanningRef.current) return;
+
+            if (result) {
+              const text = result.getText();
+              log(`✅ Detectado: ${text}`);
+
+              // feedback opcional
+              if (navigator.vibrate) navigator.vibrate(80);
+
+              // agregar al carrito
+              addByBarcode(text);
+
+              // cerrar scanner
+              closeScanner();
+            }
+          }
+        );
+
+        log("✅ Scanner corriendo");
+      } catch (e) {
+        stopScanner();
+        const msg =
+          e?.name === "NotAllowedError"
+            ? "Permiso denegado. Habilitá la cámara."
+            : e?.name === "NotFoundError"
+            ? "No se encontró cámara."
+            : e?.name === "NotReadableError"
+            ? "La cámara está ocupada por otra app."
+            : e?.name === "OverconstrainedError"
+            ? "El dispositivo no soporta los constraints solicitados."
+            : `Error al iniciar scanner: ${e?.name || "desconocido"}`;
+
+        setScannerError(msg);
         log(`❌ ${msg}`);
       }
-    }
+    }, 50);
   };
 
   return (
@@ -158,7 +168,7 @@ export default function Home() {
       <header className="home-header">
         <div>
           <h1>POS Mobile</h1>
-          <p>Home + test de cámara + debug</p>
+          <p>Escaneo con cámara + listado + total</p>
         </div>
         <button className="btn btn-ghost" onClick={clearAll}>
           Limpiar
@@ -179,31 +189,10 @@ export default function Home() {
           Agregar
         </button>
 
-        {!camOpen ? (
-          <button className="btn btn-secondary" onClick={openCamera}>
-            Test Cámara
-          </button>
-        ) : (
-          <button className="btn btn-danger" onClick={closeCamera}>
-            Cerrar Cámara
-          </button>
-        )}
+        <button className="btn btn-secondary" onClick={openScanner}>
+          Escanear
+        </button>
       </section>
-
-      {camError && <div className="cam-error">{camError}</div>}
-
-      {/* VIDEO SIEMPRE MONTADO */}
-      <div className="cam-preview" style={{ display: camOpen ? "block" : "none" }}>
-        <div className="cam-title">Preview cámara</div>
-        <video
-          ref={videoRef}
-          className="cam-video"
-          playsInline
-          muted
-          autoPlay
-        />
-        {camInfo && <pre className="cam-info">{camInfo}</pre>}
-      </div>
 
       {/* DEBUG */}
       <section className="debug-box">
@@ -238,9 +227,9 @@ export default function Home() {
                 <strong>{it.descripcion}</strong>
                 <div className="desc-code">Cod: {it.codigo}</div>
               </div>
-              <div className="right">${it.precio}</div>
+              <div className="right">${it.precio.toLocaleString("es-AR")}</div>
               <div className="right">{it.cantidad}</div>
-              <div className="right">${it.subtotal}</div>
+              <div className="right">${it.subtotal.toLocaleString("es-AR")}</div>
             </div>
           ))
         )}
@@ -248,8 +237,38 @@ export default function Home() {
 
       <footer className="total-bar">
         <span>Total</span>
-        <strong>${total}</strong>
+        <strong>${total.toLocaleString("es-AR")}</strong>
       </footer>
+
+      {/* MODAL SCANNER */}
+      {scannerOpen && (
+        <div className="scan-modal-overlay" onClick={closeScanner}>
+          <div className="scan-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="scan-modal-head">
+              <h2>Escanear código</h2>
+              <button className="btn btn-danger" onClick={closeScanner}>
+                Cerrar
+              </button>
+            </div>
+
+            {scannerError ? (
+              <div className="scan-error">{scannerError}</div>
+            ) : (
+              <video
+                ref={scannerVideoRef}
+                className="scan-video"
+                playsInline
+                muted
+                autoPlay
+              />
+            )}
+
+            <div className="scan-hint">
+              Apuntá al código de barras. Al detectarlo, se agrega automáticamente.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
