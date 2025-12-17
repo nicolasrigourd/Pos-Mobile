@@ -73,42 +73,55 @@ export default function Home() {
     setBarcode("");
   };
 
-  const openCameraTest = async () => {
-    setCamError("");
+ const openCameraTest = async () => {
+  setCamError("");
 
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-      setCamError("Este navegador no soporta cámara (getUserMedia).");
-      return;
-    }
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+    setCamError("Este navegador no soporta cámara (getUserMedia).");
+    return;
+  }
 
+  const startStream = async (constraints) => {
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    streamRef.current = stream;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.srcObject = stream;
+
+    // iOS/Safari suele necesitar esto explícito
+    video.setAttribute("playsinline", "true");
+    video.muted = true;
+    video.autoplay = true;
+
+    await video.play();
+    setCamOpen(true);
+  };
+
+  try {
+    // 1) intento trasera
+    await startStream({ audio: false, video: { facingMode: { ideal: "environment" } } });
+  } catch (e1) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: { ideal: "environment" } }, // trasera
-      });
-
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-
-      setCamOpen(true);
-    } catch (e) {
+      // 2) fallback: cualquier cámara
+      await startStream({ audio: false, video: true });
+    } catch (e2) {
       const msg =
-        e?.name === "NotAllowedError"
+        e2?.name === "NotAllowedError"
           ? "Permiso denegado. Habilitá la cámara en el navegador."
-          : e?.name === "NotFoundError"
+          : e2?.name === "NotFoundError"
           ? "No se encontró cámara en el dispositivo."
-          : e?.name === "NotReadableError"
+          : e2?.name === "NotReadableError"
           ? "La cámara está ocupada por otra app."
-          : `Error al abrir cámara: ${e?.name || "desconocido"}`;
+          : `Error al abrir cámara: ${e2?.name || "desconocido"}`;
 
       setCamError(msg);
       setCamOpen(false);
     }
-  };
+  }
+};
+
 
   const closeCameraTest = () => {
     const s = streamRef.current;
