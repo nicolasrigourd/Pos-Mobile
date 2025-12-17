@@ -4,14 +4,14 @@ import "./home.css";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { DecodeHintType, BarcodeFormat } from "@zxing/library";
 
-// Mock simple para probar lectura / tipeo de códigos
-const PRODUCT_DB = {
-  "7791234567890": { descripcion: "Coca Cola 500ml", precio: 1500 },
-  "7790000000001": { descripcion: "Galletitas", precio: 900 },
-  "7790000000002": { descripcion: "Yerba 1kg", precio: 3200 },
+// Mock inicial (después lo vamos a persistir en localStorage si querés)
+const INITIAL_DB = {
+  "7791234567890": { nombre: "Coca Cola 500ml", descripcion: "Gaseosa", precio: 1500 },
+  "7790000000001": { nombre: "Galletitas", descripcion: "Dulces", precio: 900 },
+  "7790000000002": { nombre: "Yerba 1kg", descripcion: "Mate", precio: 3200 },
 };
 
-// Hints para acelerar (solo formatos típicos de POS)
+// ZXing hints para acelerar (formatos típicos POS)
 const ZXING_HINTS = new Map();
 ZXING_HINTS.set(DecodeHintType.POSSIBLE_FORMATS, [
   BarcodeFormat.EAN_13,
@@ -19,60 +19,34 @@ ZXING_HINTS.set(DecodeHintType.POSSIBLE_FORMATS, [
   BarcodeFormat.UPC_A,
   BarcodeFormat.CODE_128,
 ]);
-// No “try harder” = más rápido
 ZXING_HINTS.set(DecodeHintType.TRY_HARDER, false);
 
 export default function Home() {
   const [barcode, setBarcode] = useState("");
   const [items, setItems] = useState([]);
+  const [productDB, setProductDB] = useState(INITIAL_DB);
 
-  // ---- Scanner modal ----
+  // ---- Scanner ----
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerError, setScannerError] = useState("");
   const scannerVideoRef = useRef(null);
-
   const readerRef = useRef(null);
   const isScanningRef = useRef(false);
+
+  // ---- Modal Alta ----
+  const [altaOpen, setAltaOpen] = useState(false);
+  const [altaError, setAltaError] = useState("");
+  const [altaForm, setAltaForm] = useState({
+    codigo: "",
+    nombre: "",
+    descripcion: "",
+    precio: "",
+  });
 
   const total = useMemo(
     () => items.reduce((acc, it) => acc + it.subtotal, 0),
     [items]
   );
-
-  const addByBarcode = (code) => {
-    const clean = String(code || "").trim();
-    if (!clean) return;
-
-    setBarcode(clean);
-
-    const prod = PRODUCT_DB[clean];
-    if (!prod) {
-      alert(`Escaneado OK, pero no existe en mock DB: ${clean}`);
-      return;
-    }
-
-    setItems((prev) => {
-      const idx = prev.findIndex((p) => p.codigo === clean);
-      if (idx >= 0) {
-        const copy = [...prev];
-        const item = copy[idx];
-        const cant = item.cantidad + 1;
-        copy[idx] = { ...item, cantidad: cant, subtotal: cant * item.precio };
-        return copy;
-      }
-
-      return [
-        ...prev,
-        {
-          codigo: clean,
-          descripcion: prod.descripcion,
-          precio: prod.precio,
-          cantidad: 1,
-          subtotal: prod.precio,
-        },
-      ];
-    });
-  };
 
   const clearAll = () => {
     setItems([]);
@@ -82,12 +56,10 @@ export default function Home() {
   const stopScanner = () => {
     try {
       isScanningRef.current = false;
-
       if (readerRef.current) {
         readerRef.current.reset();
         readerRef.current = null;
       }
-
       const video = scannerVideoRef.current;
       if (video) {
         video.pause?.();
@@ -108,7 +80,6 @@ export default function Home() {
     setScannerError("");
     setScannerOpen(true);
 
-    // Esperamos a que el modal monte el <video>
     setTimeout(async () => {
       try {
         const video = scannerVideoRef.current;
@@ -117,70 +88,37 @@ export default function Home() {
           return;
         }
 
-        // Si quedó algo previo, lo detenemos
         stopScanner();
 
-        // ⚡ timeBetweenScans: cuanto más bajo, más intenta decodificar (más CPU)
-        // 60–120 suele ser el sweet spot. Yo lo dejo en 80 para “rapidísimo”.
+        // ⚡ más rápido
         const reader = new BrowserMultiFormatReader(ZXING_HINTS, 80);
         readerRef.current = reader;
         isScanningRef.current = true;
 
-        // ⚡ Constraints para rendimiento (evitar 1080p)
         const constraints = {
           audio: false,
           video: {
             facingMode: { ideal: "environment" },
-            width: { ideal: 640 },   // rápido
-            height: { ideal: 480 },  // rápido
+            width: { ideal: 640 },
+            height: { ideal: 480 },
             frameRate: { ideal: 30, max: 60 },
           },
         };
 
         await reader.decodeFromConstraints(constraints, video, (result) => {
           if (!isScanningRef.current) return;
+          if (!result) return;
 
-          if (result) {
-            const text = result.getText();
+          const code = result.getText();
 
-            if (navigator.vibrate) navigator.vibrate(60);
+          if (navigator.vibrate) navigator.vibrate(60);
 
-            addByBarcode(text);
-            closeScanner();
-          }
+          // agregamos automático (si no existe, abre alta)
+          addByBarcode(code);
+          closeScanner();
         });
       } catch (e) {
         stopScanner();
-
-        // Si constraints fallan, fallback a video:true (algunos dispositivos)
-        if (e?.name === "OverconstrainedError") {
-          try {
-            const video = scannerVideoRef.current;
-            if (!video) {
-              setScannerError("No se pudo inicializar el video del scanner.");
-              return;
-            }
-
-            const reader = new BrowserMultiFormatReader(ZXING_HINTS, 80);
-            readerRef.current = reader;
-            isScanningRef.current = true;
-
-            await reader.decodeFromConstraints({ audio: false, video: true }, video, (result) => {
-              if (!isScanningRef.current) return;
-              if (result) {
-                const text = result.getText();
-                if (navigator.vibrate) navigator.vibrate(60);
-                addByBarcode(text);
-                closeScanner();
-              }
-            });
-
-            return;
-          } catch (e2) {
-            e = e2;
-          }
-        }
-
         const msg =
           e?.name === "NotAllowedError"
             ? "Permiso denegado. Habilitá la cámara."
@@ -195,12 +133,88 @@ export default function Home() {
     }, 80);
   };
 
+  const openAltaForCode = (code) => {
+    setAltaError("");
+    setAltaForm({
+      codigo: String(code || "").trim(),
+      nombre: "",
+      descripcion: "",
+      precio: "",
+    });
+    setAltaOpen(true);
+  };
+
+  const closeAlta = () => {
+    setAltaOpen(false);
+    setAltaError("");
+  };
+
+  const saveAlta = () => {
+    const codigo = altaForm.codigo.trim();
+    const nombre = altaForm.nombre.trim();
+    const descripcion = altaForm.descripcion.trim();
+    const precioNum = Number(String(altaForm.precio).replace(",", "."));
+
+    if (!codigo) return setAltaError("Falta el código.");
+    if (!nombre) return setAltaError("Falta el nombre comercial.");
+    if (!Number.isFinite(precioNum) || precioNum <= 0)
+      return setAltaError("Precio inválido.");
+
+    // guardar en DB (state)
+    setProductDB((prev) => ({
+      ...prev,
+      [codigo]: { nombre, descripcion, precio: precioNum },
+    }));
+
+    setAltaOpen(false);
+    setAltaError("");
+
+    // agregamos 1 unidad automáticamente al guardar
+    addByBarcode(codigo);
+  };
+
+  const addByBarcode = (code) => {
+    const clean = String(code || "").trim();
+    if (!clean) return;
+
+    setBarcode(clean);
+
+    const prod = productDB[clean];
+    if (!prod) {
+      openAltaForCode(clean);
+      return;
+    }
+
+    setItems((prev) => {
+      const idx = prev.findIndex((p) => p.codigo === clean);
+      if (idx >= 0) {
+        const copy = [...prev];
+        const item = copy[idx];
+        const cant = item.cantidad + 1;
+        copy[idx] = { ...item, cantidad: cant, subtotal: cant * item.precio };
+        return copy;
+      }
+
+      return [
+        ...prev,
+        {
+          codigo: clean,
+          nombre: prod.nombre,
+          descripcion: prod.descripcion,
+          precio: prod.precio,
+          cantidad: 1,
+          subtotal: prod.precio,
+        },
+      ];
+    });
+  };
+
   return (
     <div className="home-wrap">
       <header className="home-header">
         <div className="home-brand">
           <h1>POS Mobile</h1>
-          <p>Escaneo rápido (ZXing optimizado) + lista</p>
+          <p>Escaneo + alta rápida de productos</p>
         </div>
 
         <button className="btn btn-ghost" onClick={clearAll}>
@@ -241,7 +255,8 @@ export default function Home() {
           items.map((it) => (
             <div className="product-row" key={it.codigo}>
               <div className="desc">
-                <div className="desc-title">{it.descripcion}</div>
+                <div className="desc-title">{it.nombre}</div>
+                <div className="desc-sub">{it.descripcion || "—"}</div>
                 <div className="desc-code">Cod: {it.codigo}</div>
               </div>
 
@@ -288,7 +303,80 @@ export default function Home() {
             )}
 
             <div className="scan-hint">
-              Tip: acercá el código 10–15 cm y que ocupe buen tamaño en pantalla.
+              Al detectar, se agrega. Si no existe, se abre “Alta de producto”.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ALTA PRODUCTO */}
+      {altaOpen && (
+        <div className="modal-overlay" onClick={closeAlta}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Alta de producto</h2>
+              <button className="btn btn-danger" onClick={closeAlta}>
+                Cerrar
+              </button>
+            </div>
+
+            {altaError && <div className="modal-error">{altaError}</div>}
+
+            <div className="modal-grid">
+              <label className="field">
+                <span>Código</span>
+                <input
+                  value={altaForm.codigo}
+                  onChange={(e) =>
+                    setAltaForm((p) => ({ ...p, codigo: e.target.value }))
+                  }
+                  placeholder="Código de barras"
+                  inputMode="numeric"
+                />
+              </label>
+
+              <label className="field">
+                <span>Nombre comercial</span>
+                <input
+                  value={altaForm.nombre}
+                  onChange={(e) =>
+                    setAltaForm((p) => ({ ...p, nombre: e.target.value }))
+                  }
+                  placeholder="Ej: Arroz 1kg"
+                />
+              </label>
+
+              <label className="field">
+                <span>Descripción</span>
+                <input
+                  value={altaForm.descripcion}
+                  onChange={(e) =>
+                    setAltaForm((p) => ({ ...p, descripcion: e.target.value }))
+                  }
+                  placeholder="Ej: Largo fino / Marca X"
+                />
+              </label>
+
+              <label className="field">
+                <span>Precio</span>
+                <input
+                  value={altaForm.precio}
+                  onChange={(e) =>
+                    setAltaForm((p) => ({ ...p, precio: e.target.value }))
+                  }
+                  placeholder="Ej: 1500"
+                  inputMode="decimal"
+                />
+              </label>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={closeAlta}>
+                Cancelar
+              </button>
+              <button className="btn btn-secondary" onClick={saveAlta}>
+                Guardar y agregar
+              </button>
             </div>
           </div>
         </div>
