@@ -162,6 +162,7 @@
   width: 100%;
   border-radius: 14px;
   background: #000;
+  /* En desktop queda panorámico */
   aspect-ratio: 16 / 10;
 }
 
@@ -218,8 +219,9 @@
     opacity: 0.8;
   }
 
+  /* En móvil conviene vertical para apuntar cómodo */
   .scan-video {
-    aspect-ratio: 3 / 4; /* mejor para cámara vertical */
+    aspect-ratio: 3 / 4;
   }
 
   .total-bar {
