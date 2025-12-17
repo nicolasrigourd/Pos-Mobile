@@ -12,10 +12,10 @@ export default function Home() {
   const [barcode, setBarcode] = useState("");
   const [items, setItems] = useState([]);
 
-  // --- Test cámara/permisos ---
+  // ---- cámara / permisos ----
   const [camOpen, setCamOpen] = useState(false);
   const [camError, setCamError] = useState("");
-  const [camInfo, setCamInfo] = useState(""); // settings + info útil
+  const [camInfo, setCamInfo] = useState("");
   const [debugLines, setDebugLines] = useState([]);
 
   const videoRef = useRef(null);
@@ -31,13 +31,14 @@ export default function Home() {
     [items]
   );
 
+  // ---- lógica POS básica ----
   const addByBarcode = (code) => {
     const clean = String(code || "").trim();
     if (!clean) return;
 
     const prod = PRODUCT_DB[clean];
     if (!prod) {
-      alert(`No encontrado: ${clean} (mock DB por ahora)`);
+      alert(`No encontrado: ${clean} (mock DB)`);
       setBarcode("");
       return;
     }
@@ -47,13 +48,8 @@ export default function Home() {
       if (idx >= 0) {
         const copy = [...prev];
         const item = copy[idx];
-        const nuevaCantidad = item.cantidad + 1;
-
-        copy[idx] = {
-          ...item,
-          cantidad: nuevaCantidad,
-          subtotal: nuevaCantidad * item.precio,
-        };
+        const cant = item.cantidad + 1;
+        copy[idx] = { ...item, cantidad: cant, subtotal: cant * item.precio };
         return copy;
       }
 
@@ -72,108 +68,87 @@ export default function Home() {
     setBarcode("");
   };
 
-  const removeItem = (codigo) => {
-    setItems((prev) => prev.filter((p) => p.codigo !== codigo));
-  };
-
   const clearAll = () => {
     setItems([]);
     setBarcode("");
   };
 
-  const closeCameraTest = () => {
-    log("Cerrando cámara…");
+  // ---- cámara ----
+  const closeCamera = () => {
+    log("Cerrando cámara");
     const s = streamRef.current;
     if (s) s.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
 
-    const v = videoRef.current;
-    if (v) {
-      v.pause?.();
-      v.srcObject = null;
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
     }
 
     setCamOpen(false);
-    setCamInfo("");
-    setCamError("");
   };
 
-  const openCameraTest = async () => {
+  const openCamera = async () => {
     setCamError("");
     setCamInfo("");
-
     log("Click Test Cámara");
 
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-      setCamError("Este navegador NO expone getUserMedia (bloqueado o no soportado).");
-      log("❌ navigator.mediaDevices.getUserMedia NO disponible");
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCamError("getUserMedia NO disponible");
+      log("❌ getUserMedia no existe");
       return;
     }
 
-    // si había una previa, cortar primero
-    closeCameraTest();
+    closeCamera();
 
-    const startStream = async (constraints, label) => {
-      log(`Solicitando getUserMedia: ${label}`);
+    const start = async (constraints, label) => {
+      log(`getUserMedia → ${label}`);
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
 
-      const tracks = stream.getVideoTracks();
-      log(`Tracks video: ${tracks.length}`);
-
-      const settings = tracks[0]?.getSettings?.() || {};
+      const track = stream.getVideoTracks()[0];
+      const settings = track?.getSettings?.() || {};
       setCamInfo(JSON.stringify(settings, null, 2));
-      log(`Settings: ${JSON.stringify(settings)}`);
+      log(`settings: ${JSON.stringify(settings)}`);
 
       const video = videoRef.current;
       if (!video) {
-        log("❌ videoRef.current es null (no está montado el <video>)");
+        log("❌ videoRef sigue null (esto ya no debería pasar)");
         return;
       }
 
       video.srcObject = stream;
-
-      // forzar atributos (especialmente iOS)
       video.muted = true;
       video.autoplay = true;
       video.playsInline = true;
       video.setAttribute("playsinline", "true");
 
-      // intento de play
-      log("Intentando video.play()…");
       await video.play();
-
       setCamOpen(true);
-      log("✅ Cámara abierta y reproduciendo");
+      log("✅ cámara reproduciendo");
     };
 
     try {
-      // 1) intento trasera
-      await startStream(
-        { audio: false, video: { facingMode: { ideal: "environment" } } },
-        "trasera (facingMode environment)"
+      await start(
+        { video: { facingMode: { ideal: "environment" } }, audio: false },
+        "trasera"
       );
     } catch (e1) {
-      log(`⚠️ Falló trasera: ${e1?.name || "error"} ${e1?.message || ""}`);
-
+      log(`⚠️ trasera falló: ${e1.name}`);
       try {
-        // 2) fallback: cualquier cámara
-        await startStream({ audio: false, video: true }, "fallback video:true");
+        await start({ video: true, audio: false }, "fallback");
       } catch (e2) {
         const msg =
-          e2?.name === "NotAllowedError"
-            ? "Permiso denegado. Revisá permisos del navegador."
-            : e2?.name === "NotFoundError"
-            ? "No se encontró cámara."
-            : e2?.name === "NotReadableError"
-            ? "La cámara está ocupada por otra app."
-            : e2?.name === "OverconstrainedError"
-            ? "Constraints no soportados por el dispositivo."
-            : `Error al abrir cámara: ${e2?.name || "desconocido"} ${e2?.message || ""}`;
+          e2.name === "NotAllowedError"
+            ? "Permiso de cámara denegado"
+            : e2.name === "NotReadableError"
+            ? "Cámara ocupada por otra app"
+            : e2.name === "NotFoundError"
+            ? "No hay cámara"
+            : `Error cámara: ${e2.name}`;
 
         setCamError(msg);
-        log(`❌ Error final: ${msg}`);
-        setCamOpen(false);
+        log(`❌ ${msg}`);
       }
     }
   };
@@ -183,9 +158,8 @@ export default function Home() {
       <header className="home-header">
         <div>
           <h1>POS Mobile</h1>
-          <p>Home básica: input + listado + total + test cámara + debug</p>
+          <p>Home + test de cámara + debug</p>
         </div>
-
         <button className="btn btn-ghost" onClick={clearAll}>
           Limpiar
         </button>
@@ -198,10 +172,7 @@ export default function Home() {
           onChange={(e) => setBarcode(e.target.value)}
           placeholder="Escaneá o escribí el código…"
           inputMode="numeric"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter") addByBarcode(barcode);
-          }}
+          onKeyDown={(e) => e.key === "Enter" && addByBarcode(barcode)}
         />
 
         <button className="btn" onClick={() => addByBarcode(barcode)}>
@@ -209,84 +180,67 @@ export default function Home() {
         </button>
 
         {!camOpen ? (
-          <button className="btn btn-secondary" onClick={openCameraTest}>
+          <button className="btn btn-secondary" onClick={openCamera}>
             Test Cámara
           </button>
         ) : (
-          <button className="btn btn-danger" onClick={closeCameraTest}>
+          <button className="btn btn-danger" onClick={closeCamera}>
             Cerrar Cámara
           </button>
         )}
       </section>
 
-      {/* Errores + info */}
       {camError && <div className="cam-error">{camError}</div>}
 
-      {camOpen && (
-        <div className="cam-preview">
-          <div className="cam-title">Preview cámara</div>
-          <video ref={videoRef} className="cam-video" playsInline muted autoPlay />
-          <div className="cam-hint">
-            Si se ve negro, mirá el Debug abajo (settings/error/flow).
-          </div>
+      {/* VIDEO SIEMPRE MONTADO */}
+      <div className="cam-preview" style={{ display: camOpen ? "block" : "none" }}>
+        <div className="cam-title">Preview cámara</div>
+        <video
+          ref={videoRef}
+          className="cam-video"
+          playsInline
+          muted
+          autoPlay
+        />
+        {camInfo && <pre className="cam-info">{camInfo}</pre>}
+      </div>
 
-          {camInfo && (
-            <pre className="cam-info">
-              {camInfo}
-            </pre>
-          )}
-        </div>
-      )}
-
-      {/* DEBUG PANEL */}
+      {/* DEBUG */}
       <section className="debug-box">
         <div className="debug-head">
           <strong>Debug</strong>
           <button className="btn btn-ghost" onClick={() => setDebugLines([])}>
-            Limpiar log
+            Limpiar
           </button>
         </div>
-        {debugLines.length === 0 ? (
-          <div className="debug-empty">Sin eventos todavía.</div>
-        ) : (
-          <div className="debug-lines">
-            {debugLines.map((l, i) => (
-              <div className="debug-line" key={i}>
-                {l}
-              </div>
-            ))}
+        {debugLines.map((l, i) => (
+          <div key={i} className="debug-line">
+            {l}
           </div>
-        )}
+        ))}
       </section>
 
+      {/* LISTADO */}
       <section className="products-box">
         <div className="products-head">
           <div>Producto</div>
           <div className="right">Precio</div>
           <div className="right">Cant.</div>
           <div className="right">Subtotal</div>
-          <div className="right">Acción</div>
         </div>
 
         {items.length === 0 ? (
-          <div className="empty">Todavía no hay productos cargados.</div>
+          <div className="empty">Sin productos</div>
         ) : (
           items.map((it) => (
             <div className="product-row" key={it.codigo}>
-              <div className="desc">
-                <div className="desc-title">{it.descripcion}</div>
+              <div>
+                <strong>{it.descripcion}</strong>
                 <div className="desc-code">Cod: {it.codigo}</div>
               </div>
-
-              <div className="right">${it.precio.toLocaleString("es-AR")}</div>
+              <div className="right">${it.precio}</div>
               <div className="right">{it.cantidad}</div>
-              <div className="right">${it.subtotal.toLocaleString("es-AR")}</div>
-
-              <div className="right">
-                <button className="btn btn-danger" onClick={() => removeItem(it.codigo)}>
-                  Quitar
-                </button>
-              </div>
+              <div className="right">${it.subtotal}</div>
             </div>
           ))
         )}
@@ -294,7 +248,7 @@ export default function Home() {
 
       <footer className="total-bar">
         <span>Total</span>
-        <strong>${total.toLocaleString("es-AR")}</strong>
+        <strong>${total}</strong>
       </footer>
     </div>
   );

@@ -5,6 +5,7 @@
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
 }
 
+/* Header */
 .home-header {
   display: flex;
   align-items: flex-start;
@@ -23,9 +24,10 @@
   opacity: 0.75;
 }
 
+/* Input row */
 .scan-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 10px;
   align-items: center;
   margin-bottom: 14px;
@@ -39,6 +41,7 @@
   font-size: 16px;
 }
 
+/* Buttons */
 .btn {
   padding: 11px 14px;
   border-radius: 12px;
@@ -53,11 +56,84 @@
   color: #111827;
 }
 
+.btn-secondary {
+  background: #2563eb;
+  border-color: transparent;
+}
+
 .btn-danger {
   background: #dc2626;
   border-color: transparent;
 }
 
+/* Camera */
+.cam-error {
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #7f1d1d;
+  font-weight: 700;
+}
+
+.cam-preview {
+  margin-bottom: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+
+.cam-title {
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.cam-video {
+  width: 100%;
+  border-radius: 14px;
+  background: #000;
+  aspect-ratio: 16 / 10;
+}
+
+.cam-info {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #0b1220;
+  color: #e5e7eb;
+  overflow: auto;
+  font-size: 12px;
+}
+
+/* Debug */
+.debug-box {
+  margin-bottom: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+
+.debug-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.debug-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #f3f4f6;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+/* Products table */
 .products-box {
   border: 1px solid #e5e7eb;
   border-radius: 14px;
@@ -68,7 +144,7 @@
 .products-head,
 .product-row {
   display: grid;
-  grid-template-columns: 1fr 120px 80px 140px 110px;
+  grid-template-columns: 1fr 120px 80px 140px;
   gap: 10px;
   padding: 12px;
   align-items: center;
@@ -87,10 +163,6 @@
   text-align: right;
 }
 
-.desc-title {
-  font-weight: 800;
-}
-
 .desc-code {
   font-size: 12px;
   opacity: 0.7;
@@ -102,6 +174,7 @@
   opacity: 0.7;
 }
 
+/* Total bar */
 .total-bar {
   margin-top: 14px;
   padding: 14px 16px;
@@ -114,133 +187,14 @@
   bottom: 10px;
 }
 
+/* Responsive */
+@media (max-width: 720px) {
+  .scan-row {
+    grid-template-columns: 1fr;
+  }
 
-.scan-row {
-  grid-template-columns: 1fr auto auto;
-}
-
-.btn-secondary {
-  background: #2563eb;
-}
-
-.cam-error {
-  margin-bottom: 12px;
-  padding: 10px;
-  border-radius: 12px;
-  background: #fee2e2;
-  color: #7f1d1d;
-  font-weight: 700;
-}
-
-.cam-preview {
-  margin-bottom: 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 12px;
-  background: #fff;
-}
-
-.cam-title {
-  font-weight: 900;
-  margin-bottom: 10px;
-}
-
-.cam-video {
-  width: 100%;
-  border-radius: 14px;
-  background: #000;
-  aspect-ratio: 16 / 10;
-}
-
-.cam-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  opacity: 0.75;
-}
-
-.scan-row {
-  grid-template-columns: 1fr auto auto;
-}
-
-.btn-secondary {
-  background: #2563eb;
-}
-
-.cam-error {
-  margin-bottom: 12px;
-  padding: 10px;
-  border-radius: 12px;
-  background: #fee2e2;
-  color: #7f1d1d;
-  font-weight: 700;
-}
-
-.cam-preview {
-  margin-bottom: 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 12px;
-  background: #fff;
-}
-
-.cam-title {
-  font-weight: 900;
-  margin-bottom: 10px;
-}
-
-.cam-video {
-  width: 100%;
-  border-radius: 14px;
-  background: #000;
-  aspect-ratio: 16 / 10;
-}
-
-.cam-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  opacity: 0.75;
-}
-
-.cam-info {
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: 12px;
-  background: #0b1220;
-  color: #e5e7eb;
-  overflow: auto;
-  font-size: 12px;
-}
-
-.debug-box {
-  margin-bottom: 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 12px;
-  background: #fff;
-}
-
-.debug-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.debug-empty {
-  opacity: 0.7;
-}
-
-.debug-lines {
-  display: grid;
-  gap: 6px;
-}
-
-.debug-line {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
-  font-size: 12px;
-  padding: 8px;
-  border-radius: 10px;
-  background: #f3f4f6;
-  word-break: break-word;
+  .products-head,
+  .product-row {
+    grid-template-columns: 1fr 90px 70px 110px;
+  }
 }
