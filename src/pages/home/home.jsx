@@ -13,13 +13,6 @@ export default function Home() {
   const [barcode, setBarcode] = useState("");
   const [items, setItems] = useState([]);
 
-  // ---- Debug ----
-  const [debugLines, setDebugLines] = useState([]);
-  const log = (msg) => {
-    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    setDebugLines((prev) => [line, ...prev].slice(0, 30));
-  };
-
   // ---- Scanner modal ----
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerError, setScannerError] = useState("");
@@ -32,17 +25,14 @@ export default function Home() {
     [items]
   );
 
-  // ---- lógica POS básica ----
   const addByBarcode = (code) => {
     const clean = String(code || "").trim();
     if (!clean) return;
 
-    log(`📦 Código detectado: ${clean}`);
-    setBarcode(clean); // por si querés verlo en el input
+    setBarcode(clean);
 
     const prod = PRODUCT_DB[clean];
     if (!prod) {
-      // por ahora lo dejamos explícito, para que sepas que escaneó pero no existe en DB
       alert(`Escaneado OK, pero no existe en mock DB: ${clean}`);
       return;
     }
@@ -75,7 +65,6 @@ export default function Home() {
     setBarcode("");
   };
 
-  // ---- scanner start/stop ----
   const stopScanner = () => {
     try {
       isScanningRef.current = false;
@@ -87,7 +76,6 @@ export default function Home() {
         scannerVideoRef.current.pause?.();
         scannerVideoRef.current.srcObject = null;
       }
-      log("🛑 Scanner detenido");
     } catch {
       // noop
     }
@@ -103,47 +91,39 @@ export default function Home() {
     setScannerError("");
     setScannerOpen(true);
 
-    // Esperamos a que el modal renderice el <video>
+    // esperar a que el modal monte el <video>
     setTimeout(async () => {
       try {
         const video = scannerVideoRef.current;
         if (!video) {
           setScannerError("No se pudo inicializar el video del scanner.");
-          log("❌ scannerVideoRef.current = null");
           return;
         }
 
-        // Crear lector
         const reader = new BrowserMultiFormatReader();
         readerRef.current = reader;
         isScanningRef.current = true;
 
-        log("📷 Iniciando scanner (ZXing)…");
-
-        // Pedimos cámara trasera ideal
         await reader.decodeFromConstraints(
           { audio: false, video: { facingMode: { ideal: "environment" } } },
           video,
-          (result, err) => {
+          (result) => {
             if (!isScanningRef.current) return;
 
             if (result) {
               const text = result.getText();
-              log(`✅ Detectado: ${text}`);
 
-              // feedback opcional
+              // feedback
               if (navigator.vibrate) navigator.vibrate(80);
 
-              // agregar al carrito
+              // agregar automático
               addByBarcode(text);
 
-              // cerrar scanner
+              // cerrar modal
               closeScanner();
             }
           }
         );
-
-        log("✅ Scanner corriendo");
       } catch (e) {
         stopScanner();
         const msg =
@@ -154,22 +134,22 @@ export default function Home() {
             : e?.name === "NotReadableError"
             ? "La cámara está ocupada por otra app."
             : e?.name === "OverconstrainedError"
-            ? "El dispositivo no soporta los constraints solicitados."
+            ? "El dispositivo no soporta la cámara solicitada."
             : `Error al iniciar scanner: ${e?.name || "desconocido"}`;
 
         setScannerError(msg);
-        log(`❌ ${msg}`);
       }
-    }, 50);
+    }, 80);
   };
 
   return (
     <div className="home-wrap">
       <header className="home-header">
-        <div>
+        <div className="home-brand">
           <h1>POS Mobile</h1>
-          <p>Escaneo con cámara + listado + total</p>
+          <p>Escaneo con cámara + lista de productos</p>
         </div>
+
         <button className="btn btn-ghost" onClick={clearAll}>
           Limpiar
         </button>
@@ -194,22 +174,6 @@ export default function Home() {
         </button>
       </section>
 
-      {/* DEBUG */}
-      <section className="debug-box">
-        <div className="debug-head">
-          <strong>Debug</strong>
-          <button className="btn btn-ghost" onClick={() => setDebugLines([])}>
-            Limpiar
-          </button>
-        </div>
-        {debugLines.map((l, i) => (
-          <div key={i} className="debug-line">
-            {l}
-          </div>
-        ))}
-      </section>
-
-      {/* LISTADO */}
       <section className="products-box">
         <div className="products-head">
           <div>Producto</div>
@@ -223,13 +187,20 @@ export default function Home() {
         ) : (
           items.map((it) => (
             <div className="product-row" key={it.codigo}>
-              <div>
-                <strong>{it.descripcion}</strong>
+              <div className="desc">
+                <div className="desc-title">{it.descripcion}</div>
                 <div className="desc-code">Cod: {it.codigo}</div>
               </div>
-              <div className="right">${it.precio.toLocaleString("es-AR")}</div>
-              <div className="right">{it.cantidad}</div>
-              <div className="right">${it.subtotal.toLocaleString("es-AR")}</div>
+
+              <div className="right" data-label="Precio">
+                ${it.precio.toLocaleString("es-AR")}
+              </div>
+              <div className="right" data-label="Cant.">
+                {it.cantidad}
+              </div>
+              <div className="right" data-label="Subtotal">
+                ${it.subtotal.toLocaleString("es-AR")}
+              </div>
             </div>
           ))
         )}
@@ -264,7 +235,7 @@ export default function Home() {
             )}
 
             <div className="scan-hint">
-              Apuntá al código de barras. Al detectarlo, se agrega automáticamente.
+              Apuntá al código. Al detectarlo, se agrega automáticamente.
             </div>
           </div>
         </div>

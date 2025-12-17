@@ -1,44 +1,28 @@
+/* Base */
 .home-wrap {
   max-width: 980px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 14px;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
 }
 
-/* Header */
 .home-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
-.home-header h1 {
+.home-brand h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
 }
 
-.home-header p {
+.home-brand p {
   margin: 6px 0 0;
   opacity: 0.75;
-}
-
-/* Input row */
-.scan-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 14px;
-}
-
-.barcode-input {
-  padding: 12px 12px;
-  border-radius: 12px;
-  border: 1px solid #d0d7de;
-  outline: none;
-  font-size: 16px;
+  font-size: 13px;
 }
 
 /* Buttons */
@@ -49,6 +33,7 @@
   background: #111827;
   color: #fff;
   cursor: pointer;
+  font-weight: 700;
 }
 
 .btn-ghost {
@@ -66,74 +51,24 @@
   border-color: transparent;
 }
 
-/* Camera */
-.cam-error {
-  margin-bottom: 12px;
-  padding: 10px;
-  border-radius: 12px;
-  background: #fee2e2;
-  color: #7f1d1d;
-  font-weight: 700;
-}
-
-.cam-preview {
-  margin-bottom: 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 12px;
-  background: #fff;
-}
-
-.cam-title {
-  font-weight: 900;
-  margin-bottom: 10px;
-}
-
-.cam-video {
-  width: 100%;
-  border-radius: 14px;
-  background: #000;
-  aspect-ratio: 16 / 10;
-}
-
-.cam-info {
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: 12px;
-  background: #0b1220;
-  color: #e5e7eb;
-  overflow: auto;
-  font-size: 12px;
-}
-
-/* Debug */
-.debug-box {
-  margin-bottom: 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 12px;
-  background: #fff;
-}
-
-.debug-head {
-  display: flex;
-  justify-content: space-between;
+/* Scan row */
+.scan-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-.debug-line {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
-  font-size: 12px;
-  padding: 8px;
-  border-radius: 10px;
-  background: #f3f4f6;
-  margin-bottom: 6px;
-  word-break: break-word;
+.barcode-input {
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid #d0d7de;
+  outline: none;
+  font-size: 16px;
 }
 
-/* Products table */
+/* Products (desktop table) */
 .products-box {
   border: 1px solid #e5e7eb;
   border-radius: 14px;
@@ -152,7 +87,7 @@
 
 .products-head {
   background: #f3f4f6;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .product-row {
@@ -161,6 +96,10 @@
 
 .right {
   text-align: right;
+}
+
+.desc-title {
+  font-weight: 900;
 }
 
 .desc-code {
@@ -174,9 +113,9 @@
   opacity: 0.7;
 }
 
-/* Total bar */
+/* Total */
 .total-bar {
-  margin-top: 14px;
+  margin-top: 12px;
   padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid #e5e7eb;
@@ -187,27 +126,14 @@
   bottom: 10px;
 }
 
-/* Responsive */
-@media (max-width: 720px) {
-  .scan-row {
-    grid-template-columns: 1fr;
-  }
-
-  .products-head,
-  .product-row {
-    grid-template-columns: 1fr 90px 70px 110px;
-  }
-}
-
-
-/* --- Scanner modal --- */
+/* Scanner modal */
 .scan-modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: 12px;
   z-index: 9999;
 }
 
@@ -244,11 +170,66 @@
   border-radius: 12px;
   background: #fee2e2;
   color: #7f1d1d;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .scan-hint {
   margin-top: 10px;
   font-size: 12px;
   opacity: 0.75;
+}
+
+/* --------- Mobile responsive --------- */
+@media (max-width: 720px) {
+  .home-wrap {
+    padding: 12px;
+  }
+
+  .home-brand h1 {
+    font-size: 20px;
+  }
+
+  .scan-row {
+    grid-template-columns: 1fr;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  /* Convertimos la "tabla" a cards */
+  .products-head {
+    display: none;
+  }
+
+  .product-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .right {
+    text-align: left;
+  }
+
+  .product-row > .right::before {
+    content: attr(data-label) ": ";
+    font-weight: 900;
+    opacity: 0.8;
+  }
+
+  .scan-video {
+    aspect-ratio: 3 / 4; /* mejor para cámara vertical */
+  }
+
+  .total-bar {
+    position: sticky;
+    bottom: 8px;
+  }
+}
+
+@media (max-width: 380px) {
+  .home-brand p {
+    display: none;
+  }
 }
