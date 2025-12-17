@@ -157,3 +157,90 @@
   font-size: 12px;
   opacity: 0.75;
 }
+
+.scan-row {
+  grid-template-columns: 1fr auto auto;
+}
+
+.btn-secondary {
+  background: #2563eb;
+}
+
+.cam-error {
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #7f1d1d;
+  font-weight: 700;
+}
+
+.cam-preview {
+  margin-bottom: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+
+.cam-title {
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.cam-video {
+  width: 100%;
+  border-radius: 14px;
+  background: #000;
+  aspect-ratio: 16 / 10;
+}
+
+.cam-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.cam-info {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #0b1220;
+  color: #e5e7eb;
+  overflow: auto;
+  font-size: 12px;
+}
+
+.debug-box {
+  margin-bottom: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+
+.debug-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.debug-empty {
+  opacity: 0.7;
+}
+
+.debug-lines {
+  display: grid;
+  gap: 6px;
+}
+
+.debug-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #f3f4f6;
+  word-break: break-word;
+}
